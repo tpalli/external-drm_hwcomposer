@@ -49,6 +49,7 @@ LOCAL_SRC_FILES := \
 	drmdisplaycompositor.cpp \
 	drmencoder.cpp \
 	drmeventlistener.cpp \
+	drmhwctwo.cpp \
 	drmmode.cpp \
 	drmplane.cpp \
 	drmproperty.cpp \
@@ -63,6 +64,10 @@ LOCAL_SRC_FILES := \
 	virtualcompositorworker.cpp \
 	vsyncworker.cpp \
 	worker.cpp
+
+LOCAL_CPPFLAGS += \
+	-DHWC2_USE_CPP11 \
+	-DHWC2_INCLUDE_STRINGIFICATION
 
 ifeq ($(strip $(BOARD_DRM_HWCOMPOSER_BUFFER_IMPORTER)),nvidia-gralloc)
 LOCAL_CPPFLAGS += -DUSE_NVIDIA_IMPORTER
