@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#include "drmhwcomposer.h"
+#include "drmresources.h"
+#include "importer.h"
+#include "vsyncworker.h"
+
 #include <hardware/hwcomposer2.h>
 
 #include <map>
@@ -22,11 +27,67 @@ namespace android {
 
 class DrmHwcTwo : public hwc2_device_t {
  public:
+  static int HookDevOpen(const struct hw_module_t *module, const char *name,
+                         struct hw_device_t **dev);
+
   DrmHwcTwo();
+
+  HWC2::Error Init();
 
  private:
   class HwcLayer {
    public:
+    HWC2::Composition sf_type() const {
+      return sf_type_;
+    }
+    HWC2::Composition validated_type() const {
+      return validated_type_;
+    }
+    void accept_type_change() {
+      sf_type_ = validated_type_;
+    }
+    void set_validated_type(HWC2::Composition type) {
+      validated_type_ = type;
+    }
+    bool type_changed() const {
+      return sf_type_ != validated_type_;
+    }
+
+    uint32_t z_order() const {
+      return z_order_;
+    }
+
+    buffer_handle_t buffer() {
+      return buffer_;
+    }
+    void set_buffer(buffer_handle_t buffer) {
+      buffer_ = buffer;
+    }
+
+    int take_acquire_fence() {
+      return acquire_fence_.Release();
+    }
+    void set_acquire_fence(int acquire_fence) {
+      acquire_fence_.Set(dup(acquire_fence));
+    }
+
+    int release_fence() {
+      return release_fence_.get();
+    }
+    int take_release_fence() {
+      return release_fence_.Release();
+    }
+    void manage_release_fence() {
+      release_fence_.Set(release_fence_raw_);
+      release_fence_raw_ = -1;
+    }
+    OutputFd release_fence_output() {
+      return OutputFd(&release_fence_raw_);
+    }
+
+    void PopulateDrmLayer(DrmHwcLayer *layer);
+
+    // Layer hooks
     HWC2::Error SetCursorPosition(int32_t x, int32_t y);
     HWC2::Error SetLayerBlendMode(int32_t mode);
     HWC2::Error SetLayerBuffer(buffer_handle_t buffer, int32_t acquire_fence);
@@ -41,10 +102,44 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error SetLayerTransform(int32_t transform);
     HWC2::Error SetLayerVisibleRegion(hwc_region_t visible);
     HWC2::Error SetLayerZOrder(uint32_t z);
+
+   private:
+    // sf_type_ stores the initial type given to us by surfaceflinger,
+    // validated_type_ stores the type after running ValidateDisplay
+    HWC2::Composition sf_type_ = HWC2::Composition::Invalid;
+    HWC2::Composition validated_type_ = HWC2::Composition::Invalid;
+
+    HWC2::BlendMode blending_ = HWC2::BlendMode::None;
+    buffer_handle_t buffer_;
+    UniqueFd acquire_fence_;
+    int release_fence_raw_ = -1;
+    UniqueFd release_fence_;
+    hwc_rect_t display_frame_;
+    float alpha_ = 1.0f;
+    hwc_frect_t source_crop_;
+    HWC2::Transform transform_ = HWC2::Transform::None;
+    uint32_t z_order_ = 0;
+    android_dataspace_t dataspace_ = HAL_DATASPACE_UNKNOWN;
+  };
+
+  struct HwcCallback {
+    HwcCallback(hwc2_callback_data_t d, hwc2_function_pointer_t f)
+        : data(d), func(f) {
+    }
+    hwc2_callback_data_t data;
+    hwc2_function_pointer_t func;
   };
 
   class HwcDisplay {
    public:
+    HwcDisplay(DrmResources *drm, std::shared_ptr<Importer> importer,
+               const gralloc_module_t *gralloc, hwc2_display_t handle,
+               HWC2::DisplayType type);
+    HWC2::Error Init();
+
+    HWC2::Error RegisterVsyncCallback(hwc2_callback_data_t data,
+                                      hwc2_function_pointer_t func);
+
     // HWC Hooks
     HWC2::Error AcceptDisplayChanges();
     HWC2::Error CreateLayer(hwc2_layer_t *layer);
@@ -73,7 +168,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error SetClientTarget(buffer_handle_t target, int32_t acquire_fence,
                                 int32_t dataspace);
     HWC2::Error SetColorMode(int32_t mode);
-    HWC2::Error SetColorTransform(float *matrix, int32_t hint);
+    HWC2::Error SetColorTransform(const float *matrix, int32_t hint);
     HWC2::Error SetOutputBuffer(buffer_handle_t buffer, int32_t release_fence);
     HWC2::Error SetPowerMode(int32_t mode);
     HWC2::Error SetVsyncEnabled(int32_t enabled);
@@ -83,7 +178,23 @@ class DrmHwcTwo : public hwc2_device_t {
     }
 
    private:
+    void AddFenceToRetireFence(int fd);
+
+    DrmResources *drm_;
+    std::shared_ptr<Importer> importer_;
+    const gralloc_module_t *gralloc_;
+
+    VSyncWorker vsync_worker_;
+    DrmConnector *connector_ = NULL;
+    hwc2_display_t handle_;
+    HWC2::DisplayType type_;
+    uint32_t layer_idx_ = 0;
     std::map<hwc2_layer_t, HwcLayer> layers_;
+    HwcLayer client_layer_;
+    UniqueFd retire_fence_;
+    UniqueFd next_retire_fence_;
+
+    uint32_t frame_no_ = 0;
   };
 
   static DrmHwcTwo *toDrmHwcTwo(hwc2_device_t *dev) {
@@ -135,6 +246,10 @@ class DrmHwcTwo : public hwc2_device_t {
   HWC2::Error RegisterCallback(int32_t descriptor, hwc2_callback_data_t data,
                                hwc2_function_pointer_t function);
 
+  DrmResources drm_;
+  std::shared_ptr<Importer> importer_;  // Shared with HwcDisplay
+  const gralloc_module_t *gralloc_;
   std::map<hwc2_display_t, HwcDisplay> displays_;
+  std::map<HWC2::Callback, HwcCallback> callbacks_;
 };
 }
