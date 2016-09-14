@@ -544,7 +544,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   ret = composition->Plan(compositor_.squash_state(), &primary_planes,
                          &overlay_planes, &cursor_planes);
   if (ret) {
-    ALOGE("Failed to set layers in the composition ret=%d", ret);
+    ALOGE("Failed to plan the composition ret=%d", ret);
     return HWC2::Error::BadConfig;
   }
 

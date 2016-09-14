@@ -259,8 +259,10 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
     if (!layer->release_fence)
       continue;
     int ret = layer->release_fence.Set(CreateNextTimelineFence());
-    if (ret < 0)
+    if (ret < 0) {
+      ALOGE("Failed to set the release fence (squash) %d", ret);
       return ret;
+    }
   }
   timeline_squash_done_ = timeline_;
 
@@ -277,8 +279,10 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
     if (!layer->release_fence)
       continue;
     int ret = layer->release_fence.Set(CreateNextTimelineFence());
-    if (ret < 0)
+    if (ret < 0) {
+      ALOGE("Failed to set the release fence (comp) %d", ret);
       return ret;
+    }
   }
 
   return 0;
