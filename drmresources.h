@@ -66,6 +66,7 @@ class DrmResources {
   int GetConnectorProperty(const DrmConnector &connector, const char *prop_name,
                            DrmProperty *property);
 
+  uint32_t GetCrtcCount() const;
   uint32_t next_mode_id();
 
   int CreatePropertyBlob(void *data, size_t length, uint32_t *blob_id);

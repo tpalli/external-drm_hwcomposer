@@ -242,6 +242,10 @@ DrmPlane *DrmResources::GetPlane(uint32_t id) const {
   return NULL;
 }
 
+uint32_t DrmResources::GetCrtcCount() const {
+  return (uint32_t) crtcs_.size();
+}
+
 uint32_t DrmResources::next_mode_id() {
   return ++mode_id_;
 }
