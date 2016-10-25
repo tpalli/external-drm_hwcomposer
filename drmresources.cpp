@@ -154,7 +154,8 @@ int DrmResources::Init() {
       break;
     }
 
-    if (conn->built_in() && !found_primary) {
+    if (conn->state() == DRM_MODE_CONNECTED && conn->built_in() &&
+        !found_primary) {
       conn->set_display(0);
       found_primary = true;
     } else {
@@ -276,6 +277,11 @@ int DrmResources::TryEncoderForDisplay(int display, DrmEncoder *enc) {
 
 int DrmResources::CreateDisplayPipe(DrmConnector *connector) {
   int display = connector->display();
+
+  // skip not connected
+  if (connector->state() == DRM_MODE_DISCONNECTED)
+    return 0;
+
   /* Try to use current setup first */
   if (connector->encoder()) {
     int ret = TryEncoderForDisplay(display, connector->encoder());
