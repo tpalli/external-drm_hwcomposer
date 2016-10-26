@@ -110,6 +110,7 @@ static inline void supported(char const *func) {
 }
 
 HWC2::Error DrmHwcTwo::CreateVirtualDisplay(uint32_t width, uint32_t height,
+                                            int32_t *format,
                                             hwc2_display_t *display) {
   // TODO: Implement virtual display
   return unsupported(__func__, width, height, display);
@@ -623,7 +624,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::SetActiveConfig(hwc2_config_t config) {
 
 HWC2::Error DrmHwcTwo::HwcDisplay::SetClientTarget(buffer_handle_t target,
                                                    int32_t acquire_fence,
-                                                   int32_t dataspace) {
+                                                   int32_t dataspace,
+                                                   hwc_region_t damage) {
   supported(__func__);
   UniqueFd uf(acquire_fence);
 
@@ -858,7 +860,7 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
       return ToHook<HWC2_PFN_CREATE_VIRTUAL_DISPLAY>(
           DeviceHook<int32_t, decltype(&DrmHwcTwo::CreateVirtualDisplay),
                      &DrmHwcTwo::CreateVirtualDisplay, uint32_t, uint32_t,
-                     hwc2_display_t *>);
+                     int32_t*, hwc2_display_t *>);
     case HWC2::FunctionDescriptor::DestroyVirtualDisplay:
       return ToHook<HWC2_PFN_DESTROY_VIRTUAL_DISPLAY>(
           DeviceHook<int32_t, decltype(&DrmHwcTwo::DestroyVirtualDisplay),
@@ -954,7 +956,7 @@ hwc2_function_pointer_t DrmHwcTwo::HookDevGetFunction(
     case HWC2::FunctionDescriptor::SetClientTarget:
       return ToHook<HWC2_PFN_SET_CLIENT_TARGET>(DisplayHook<
           decltype(&HwcDisplay::SetClientTarget), &HwcDisplay::SetClientTarget,
-          buffer_handle_t, int32_t, int32_t>);
+          buffer_handle_t, int32_t, int32_t, hwc_region_t>);
     case HWC2::FunctionDescriptor::SetColorMode:
       return ToHook<HWC2_PFN_SET_COLOR_MODE>(
           DisplayHook<decltype(&HwcDisplay::SetColorMode),

@@ -172,7 +172,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HWC2::Error PresentDisplay(int32_t *retire_fence);
     HWC2::Error SetActiveConfig(hwc2_config_t config);
     HWC2::Error SetClientTarget(buffer_handle_t target, int32_t acquire_fence,
-                                int32_t dataspace);
+                                int32_t dataspace, hwc_region_t damage);
     HWC2::Error SetColorMode(int32_t mode);
     HWC2::Error SetColorTransform(const float *matrix, int32_t hint);
     HWC2::Error SetOutputBuffer(buffer_handle_t buffer, int32_t release_fence);
@@ -252,6 +252,7 @@ class DrmHwcTwo : public hwc2_device_t {
 
   // Device functions
   HWC2::Error CreateVirtualDisplay(uint32_t width, uint32_t height,
+                                   int32_t *format,
                                    hwc2_display_t *display);
   HWC2::Error DestroyVirtualDisplay(hwc2_display_t display);
   void Dump(uint32_t *size, char *buffer);
