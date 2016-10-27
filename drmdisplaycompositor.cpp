@@ -790,9 +790,14 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
 out:
   if (!ret) {
-    uint32_t flags = DRM_MODE_ATOMIC_ALLOW_MODESET;
-    if (test_only)
+    uint32_t flags = 0;
+    if (test_only) {
       flags |= DRM_MODE_ATOMIC_TEST_ONLY;
+    } else if (mode_.needs_modeset) {
+      flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+    } else {
+      flags |= DRM_MODE_ATOMIC_NONBLOCK;
+    }
 
     ret = drmModeAtomicCommit(drm_->fd(), pset, flags, drm_);
     if (ret) {
