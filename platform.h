@@ -108,7 +108,7 @@ class Planner {
       return 0;
     }
 
-   private:
+   protected:
     static std::vector<DrmCompositionPlane>::iterator GetPrecompIter(
         std::vector<DrmCompositionPlane> *composition) {
       return std::find_if(composition->begin(), composition->end(),

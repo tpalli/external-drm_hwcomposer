@@ -56,6 +56,7 @@ LOCAL_SRC_FILES := \
 	hwcomposer.cpp \
         platform.cpp \
         platformdrmgeneric.cpp \
+	platformia.cpp \
         platformnv.cpp \
 	separate_rects.cpp \
 	virtualcompositorworker.cpp \
@@ -65,7 +66,11 @@ LOCAL_SRC_FILES := \
 ifeq ($(strip $(BOARD_DRM_HWCOMPOSER_BUFFER_IMPORTER)),nvidia-gralloc)
 LOCAL_CPPFLAGS += -DUSE_NVIDIA_IMPORTER
 else
+ifeq ($(strip $(BOARD_USES_IA_PLANNER)),true)
+LOCAL_CPPFLAGS += -DUSE_IA_PLANNER
+else
 LOCAL_CPPFLAGS += -DUSE_DRM_GENERIC_IMPORTER
+endif
 endif
 
 ifeq ($(strip $(BOARD_DISABLE_OVERLAY_USAGE)),true)
