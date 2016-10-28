@@ -411,9 +411,11 @@ static int EGLFenceWait(EGLDisplay egl_display, int acquireFenceFd) {
 }
 
 static int CreateTextureFromHandle(EGLDisplay egl_display,
-                                   buffer_handle_t handle, Importer *importer,
+                                   buffer_handle_t handle,
+				   DrmHwcBuffer *buffer,
+                                   Importer *importer,
                                    AutoEGLImageAndGLTexture *out) {
-  EGLImageKHR image = importer->ImportImage(egl_display, handle);
+  EGLImageKHR image = importer->ImportImage(egl_display, buffer, handle);
 
   if (image == EGL_NO_IMAGE_KHR) {
     ALOGE("Failed to make image %s %p", GetEGLError(), handle);
@@ -585,7 +587,8 @@ int GLWorkerCompositor::Composite(DrmHwcLayer *layers,
       continue;
 
     ret = CreateTextureFromHandle(egl_display_, layer->get_usable_handle(),
-                                  importer, &layer_textures.back());
+                                  &layer->buffer, importer,
+				  &layer_textures.back());
 
     if (!ret) {
       ret = EGLFenceWait(egl_display_, layer->acquire_fence.Release());

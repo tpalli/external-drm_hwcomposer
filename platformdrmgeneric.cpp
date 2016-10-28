@@ -85,6 +85,7 @@ uint32_t DrmGenericImporter::ConvertHalFormatToDrm(uint32_t hal_format) {
 }
 
 EGLImageKHR DrmGenericImporter::ImportImage(EGLDisplay egl_display,
+                                            DrmHwcBuffer * /*buffer*/,
                                             buffer_handle_t handle) {
   gralloc_drm_handle_t *gr_handle = gralloc_drm_handle(handle);
   if (!gr_handle)
