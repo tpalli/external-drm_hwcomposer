@@ -795,8 +795,10 @@ out:
       flags |= DRM_MODE_ATOMIC_TEST_ONLY;
     } else if (mode_.needs_modeset) {
       flags |= DRM_MODE_ATOMIC_ALLOW_MODESET;
+#ifndef USE_DISABLE_OVERLAY_USAGE
     } else {
       flags |= DRM_MODE_ATOMIC_NONBLOCK;
+#endif
     }
 
     ret = drmModeAtomicCommit(drm_->fd(), pset, flags, drm_);
