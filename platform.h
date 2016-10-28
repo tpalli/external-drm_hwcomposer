@@ -49,6 +49,12 @@ class Importer {
   // Note: This can be called from a different thread than ImportBuffer. The
   //       implementation is responsible for ensuring thread safety.
   virtual int ReleaseBuffer(hwc_drm_bo_t *bo) = 0;
+
+  // Creates a new framebuffer with bo as it's scanout buffer.
+  //
+  // Note: This can be called from a different thread than ImportBuffer. The
+  //       implementation is responsible for ensuring thread safety.
+  virtual int CreateFrameBuffer(hwc_drm_bo_t *bo, uint32_t plane_type) = 0;
 };
 
 class Planner {

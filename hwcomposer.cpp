@@ -263,6 +263,16 @@ int DrmHwcBuffer::ImportBuffer(buffer_handle_t handle, Importer *importer) {
   return 0;
 }
 
+int DrmHwcBuffer::CreateFrameBuffer(uint32_t plane_type) {
+  if (importer_ == NULL) {
+    ALOGE("Access of non-existent BO");
+    exit(1);
+    return -1;
+  }
+
+  return importer_->CreateFrameBuffer(&bo_, plane_type);
+}
+
 int DrmHwcNativeHandle::CopyBufferHandle(buffer_handle_t handle,
                                          const gralloc_module_t *gralloc) {
   native_handle_t *handle_copy = dup_buffer_handle(handle);
