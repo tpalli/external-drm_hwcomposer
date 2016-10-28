@@ -81,6 +81,68 @@ uint32_t IAImporter::GetFormatForFrameBuffer(uint32_t fourcc_format,
   return fourcc_format;
 }
 
+EGLImageKHR IAImporter::ImportImage(EGLDisplay egl_display,
+				    DrmHwcBuffer *buffer,
+				    buffer_handle_t handle) {
+  gralloc_drm_handle_t *gr_handle = gralloc_drm_handle(handle);
+  EGLImageKHR image = EGL_NO_IMAGE_KHR;
+  // Note: If eglCreateImageKHR is successful for a EGL_LINUX_DMA_BUF_EXT
+  // target, the EGL will take a reference to the dma_buf.
+  if (buffer->operator->()->format == DRM_FORMAT_YUV420) {
+    const EGLint attr_list_yv12[] = {
+	EGL_WIDTH,
+	static_cast<EGLint>(buffer->operator->()->width),
+	EGL_HEIGHT,
+	static_cast<EGLint>(buffer->operator->()->height),
+	EGL_LINUX_DRM_FOURCC_EXT,
+	DRM_FORMAT_YUV420,
+	EGL_DMA_BUF_PLANE0_FD_EXT,
+	gr_handle->prime_fd,
+	EGL_DMA_BUF_PLANE0_PITCH_EXT,
+	static_cast<EGLint>(buffer->operator->()->pitches[0]),
+	EGL_DMA_BUF_PLANE0_OFFSET_EXT,
+	static_cast<EGLint>(buffer->operator->()->offsets[0]),
+	EGL_DMA_BUF_PLANE1_FD_EXT,
+	gr_handle->prime_fd,
+	EGL_DMA_BUF_PLANE1_PITCH_EXT,
+	static_cast<EGLint>(buffer->operator->()->pitches[1]),
+	EGL_DMA_BUF_PLANE1_OFFSET_EXT,
+	static_cast<EGLint>(buffer->operator->()->offsets[1]),
+	EGL_DMA_BUF_PLANE2_FD_EXT,
+	gr_handle->prime_fd,
+	EGL_DMA_BUF_PLANE2_PITCH_EXT,
+	static_cast<EGLint>(buffer->operator->()->pitches[2]),
+	EGL_DMA_BUF_PLANE2_OFFSET_EXT,
+	static_cast<EGLint>(buffer->operator->()->offsets[2]),
+	EGL_NONE,
+	0};
+    image = eglCreateImageKHR(
+	egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
+	static_cast<EGLClientBuffer>(nullptr), attr_list_yv12);
+  } else {
+    const EGLint attr_list[] = {
+	EGL_WIDTH,
+	static_cast<EGLint>(buffer->operator->()->width),
+	EGL_HEIGHT,
+	static_cast<EGLint>(buffer->operator->()->height),
+	EGL_LINUX_DRM_FOURCC_EXT,
+	static_cast<EGLint>(buffer->operator->()->format),
+	EGL_DMA_BUF_PLANE0_FD_EXT,
+	gr_handle->prime_fd,
+	EGL_DMA_BUF_PLANE0_PITCH_EXT,
+	static_cast<EGLint>(buffer->operator->()->pitches[0]),
+	EGL_DMA_BUF_PLANE0_OFFSET_EXT,
+	0,
+	EGL_NONE,
+	0};
+    image =
+	eglCreateImageKHR(egl_display, EGL_NO_CONTEXT, EGL_LINUX_DMA_BUF_EXT,
+			  static_cast<EGLClientBuffer>(nullptr), attr_list);
+  }
+
+  return image;
+}
+
 int IAImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   int ret = gralloc_->perform(gralloc_, GRALLOC_MODULE_PERFORM_DRM_IMPORT,
                               drm_->fd(), handle, bo);

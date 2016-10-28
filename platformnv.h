@@ -34,7 +34,7 @@ class NvImporter : public Importer {
 
   int Init();
 
-  EGLImageKHR ImportImage(EGLDisplay egl_display,
+  EGLImageKHR ImportImage(EGLDisplay egl_display, DrmHwcBuffer *buffer,
                           buffer_handle_t handle) override;
   int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
   int ReleaseBuffer(hwc_drm_bo_t *bo) override;

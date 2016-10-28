@@ -40,7 +40,7 @@ class Importer {
 
   // Imports EGLImage for glcompositor, since NV handles this in non-standard
   // way, and fishing out the details is specific to the gralloc used.
-  virtual EGLImageKHR ImportImage(EGLDisplay egl_display,
+  virtual EGLImageKHR ImportImage(EGLDisplay egl_display, DrmHwcBuffer *buffer,
                                   buffer_handle_t handle) = 0;
 
   // Imports the buffer referred to by handle into bo.
