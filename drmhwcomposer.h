@@ -70,6 +70,8 @@ class DrmHwcBuffer {
 
   void Clear();
 
+  int CreateFrameBuffer(uint32_t plane_type);
+
   int ImportBuffer(buffer_handle_t handle, Importer *importer);
 
  private:

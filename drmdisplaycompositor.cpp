@@ -688,6 +688,14 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         break;
       }
       fb_id = layer.buffer->fb_id;
+      if (fb_id == 0) {
+        ret = layer.buffer.CreateFrameBuffer(plane->type());
+        if (ret) {
+          ALOGE("Failed to Create Framebuffer.");
+          break;
+        }
+        fb_id = layer.buffer->fb_id;
+      }
       display_frame = layer.display_frame;
       source_crop = layer.source_crop;
       if (layer.blending == DrmHwcBlending::kPreMult)

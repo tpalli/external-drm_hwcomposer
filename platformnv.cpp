@@ -122,6 +122,11 @@ int NvImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   return 0;
 }
 
+int NvImporter::CreateFrameBuffer(hwc_drm_bo_t * /*bo*/,
+                                  uint32_t /*plane_type*/) {
+  return 0;
+}
+
 int NvImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
   NvBuffer_t *buf = (NvBuffer_t *)bo->priv;
   if (!buf) {

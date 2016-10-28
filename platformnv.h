@@ -36,6 +36,7 @@ class NvImporter : public Importer {
 
   int ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) override;
   int ReleaseBuffer(hwc_drm_bo_t *bo) override;
+  int CreateFrameBuffer(hwc_drm_bo_t *bo, uint32_t plane_type) override;
 
  private:
   typedef struct NvBuffer {

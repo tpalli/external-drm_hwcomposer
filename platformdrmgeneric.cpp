@@ -103,11 +103,20 @@ int DrmGenericImporter::ImportBuffer(buffer_handle_t handle, hwc_drm_bo_t *bo) {
   bo->gem_handles[0] = gem_handle;
   bo->offsets[0] = 0;
 
-  ret = drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
-                      bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
+  return 0;
+}
+
+int DrmGenericImporter::CreateFrameBuffer(hwc_drm_bo_t *bo,
+                                          uint32_t /*plane_type*/) {
+  int ret =
+      drmModeAddFB2(drm_->fd(), bo->width, bo->height, bo->format,
+                    bo->gem_handles, bo->pitches, bo->offsets, &bo->fb_id, 0);
+
   if (ret) {
-    ALOGE("could not create drm fb %d", ret);
-    return ret;
+    ALOGE("drmModeAddFB2 error (%dx%d, %c%c%c%c, handle %d pitch %d) (%s)",
+          bo->width, bo->height, bo->format, bo->format >> 8,
+          bo->format >> 16, bo->format >> 24, bo->gem_handles[0],
+          bo->pitches[0], strerror(-ret));
   }
 
   return ret;
