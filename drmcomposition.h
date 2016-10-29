@@ -67,6 +67,7 @@ class DrmComposition {
 
   std::vector<DrmPlane *> primary_planes_;
   std::vector<DrmPlane *> overlay_planes_;
+  std::vector<DrmPlane *> cursor_planes_;
 
   /*
    * This _must_ be read-only after it's passed to QueueComposition. Otherwise

@@ -138,7 +138,8 @@ class Planner {
   std::tuple<int, std::vector<DrmCompositionPlane>> ProvisionPlanes(
       std::map<size_t, DrmHwcLayer *> &layers, bool use_squash_fb,
       DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
-      std::vector<DrmPlane *> *overlay_planes);
+      std::vector<DrmPlane *> *overlay_planes,
+      std::vector<DrmPlane *> *cursor_planes);
 
   template <typename T, typename... A>
   void AddStage(A &&... args) {
@@ -150,6 +151,9 @@ class Planner {
   std::vector<DrmPlane *> GetUsablePlanes(
       DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
       std::vector<DrmPlane *> *overlay_planes);
+
+  DrmPlane *PopUsableCursorPlane(DrmCrtc *crtc,
+                                 std::vector<DrmPlane *> *cursor_planes);
 
   std::vector<std::unique_ptr<PlanStage>> stages_;
 };

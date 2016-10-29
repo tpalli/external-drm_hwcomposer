@@ -285,7 +285,8 @@ int DrmDisplayComposition::CreateAndAssignReleaseFences() {
 
 int DrmDisplayComposition::Plan(SquashState *squash,
                                 std::vector<DrmPlane *> *primary_planes,
-                                std::vector<DrmPlane *> *overlay_planes) {
+                                std::vector<DrmPlane *> *overlay_planes,
+                                std::vector<DrmPlane *> *cursor_planes) {
   if (type_ != DRM_COMPOSITION_TYPE_FRAME)
     return 0;
 
@@ -363,7 +364,7 @@ int DrmDisplayComposition::Plan(SquashState *squash,
   std::vector<DrmCompositionPlane> plan;
   std::tie(ret, composition_planes_) =
       planner_->ProvisionPlanes(to_composite, use_squash_framebuffer, crtc_,
-                                primary_planes, overlay_planes);
+                                primary_planes, overlay_planes, cursor_planes);
   if (ret) {
     ALOGE("Planner failed provisioning planes ret=%d", ret);
     return ret;
@@ -378,6 +379,8 @@ int DrmDisplayComposition::Plan(SquashState *squash,
     std::vector<DrmPlane *> *container;
     if (i.plane()->type() == DRM_PLANE_TYPE_PRIMARY)
       container = primary_planes;
+    else if (i.plane()->type() == DRM_PLANE_TYPE_CURSOR)
+      container = cursor_planes;
     else
       container = overlay_planes;
     for (auto j = container->begin(); j != container->end(); ++j) {

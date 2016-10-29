@@ -43,6 +43,8 @@ DrmComposition::DrmComposition(DrmResources *drm, Importer *importer,
       primary_planes_.push_back(plane.get());
     else if (use_overlay_planes && plane->type() == DRM_PLANE_TYPE_OVERLAY)
       overlay_planes_.push_back(plane.get());
+    else if (plane->type() == DRM_PLANE_TYPE_CURSOR)
+      cursor_planes_.push_back(plane.get());
   }
 }
 
@@ -109,7 +111,7 @@ int DrmComposition::Plan(std::map<int, DrmDisplayCompositor> &compositor_map) {
     int display = conn->display();
     DrmDisplayComposition *comp = GetDisplayComposition(display);
     ret = comp->Plan(compositor_map[display].squash_state(), &primary_planes_,
-                     &overlay_planes_);
+                     &overlay_planes_, &cursor_planes_);
     if (ret) {
       ALOGE("Failed to plan composition for dislay %d", display);
       return ret;
@@ -152,6 +154,15 @@ int DrmComposition::DisableUnusedPlanes() {
       if ((*iter)->GetCrtcSupported(*crtc)) {
         comp->AddPlaneDisable(*iter);
         iter = overlay_planes_.erase(iter);
+      } else {
+        iter++;
+      }
+    }
+    for (std::vector<DrmPlane *>::iterator iter = cursor_planes_.begin();
+         iter != cursor_planes_.end();) {
+      if ((*iter)->GetCrtcSupported(*crtc)) {
+        comp->AddPlaneDisable(*iter);
+        iter = cursor_planes_.erase(iter);
       } else {
         iter++;
       }
