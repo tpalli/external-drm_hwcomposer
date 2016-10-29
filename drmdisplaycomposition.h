@@ -116,7 +116,8 @@ class DrmDisplayComposition {
   int SetDisplayMode(const DrmMode &display_mode);
 
   int Plan(SquashState *squash, std::vector<DrmPlane *> *primary_planes,
-           std::vector<DrmPlane *> *overlay_planes);
+           std::vector<DrmPlane *> *overlay_planes,
+           std::vector<DrmPlane *> *cursor_planes);
 
   int FinalizeComposition();
 

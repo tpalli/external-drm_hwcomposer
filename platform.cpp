@@ -36,10 +36,26 @@ std::vector<DrmPlane *> Planner::GetUsablePlanes(
   return usable_planes;
 }
 
+DrmPlane *Planner::PopUsableCursorPlane(
+    DrmCrtc *crtc, std::vector<DrmPlane *> *cursor_planes) {
+  DrmPlane *cursor_plane = NULL;
+  for (auto i = cursor_planes->begin(); i != cursor_planes->end(); ++i) {
+    if ((*i)->type() == DRM_PLANE_TYPE_CURSOR &&
+        (*i)->GetCrtcSupported(*crtc)) {
+      cursor_plane = *i;
+      cursor_planes->erase(i);
+      break;
+    }
+  }
+
+  return cursor_plane;
+}
+
 std::tuple<int, std::vector<DrmCompositionPlane>> Planner::ProvisionPlanes(
     std::map<size_t, DrmHwcLayer *> &layers, bool use_squash_fb, DrmCrtc *crtc,
     std::vector<DrmPlane *> *primary_planes,
-    std::vector<DrmPlane *> *overlay_planes) {
+    std::vector<DrmPlane *> *overlay_planes,
+    std::vector<DrmPlane *> *cursor_planes) {
   std::vector<DrmCompositionPlane> composition;
   std::vector<DrmPlane *> planes =
       GetUsablePlanes(crtc, primary_planes, overlay_planes);
@@ -69,6 +85,22 @@ std::tuple<int, std::vector<DrmCompositionPlane>> Planner::ProvisionPlanes(
                                precomp_plane, crtc);
     } else {
       ALOGE("Not enough planes to reserve for precomp fb");
+    }
+  }
+
+  // If we have dedicated cursor plane, try using it to composite cursor
+  // layer.
+  if (cursor_planes) {
+    for (auto j = layers.begin(); j != layers.end(); ++j) {
+      if (j->second->gralloc_buffer_usage & GRALLOC_USAGE_CURSOR) {
+        DrmPlane *cursor_plane = PopUsableCursorPlane(crtc, cursor_planes);
+        if (cursor_plane) {
+          composition.emplace_back(DrmCompositionPlane::Type::kLayer,
+                                   cursor_plane, crtc, j->first);
+          layers.erase(j);
+        }
+        break;
+      }
     }
   }
 
