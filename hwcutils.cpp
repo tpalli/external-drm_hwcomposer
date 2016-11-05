@@ -18,7 +18,7 @@
 #define LOG_TAG "hwc-drm-utils"
 
 #include "drmhwcomposer.h"
-#include "importer.h"
+#include "platform.h"
 
 #include <cutils/log.h>
 
