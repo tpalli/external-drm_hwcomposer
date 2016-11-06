@@ -140,6 +140,7 @@ int DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
   const DrmHwcRect<int> &display_frame = layer.display_frame;
   const DrmHwcRect<float> &source_crop = layer.source_crop;
   uint64_t transform = layer.transform;
+  int fence = layer.acquire_fence.get();
   if (layer.blending == DrmHwcBlending::kPreMult)
     alpha = layer.alpha;
 
@@ -213,6 +214,11 @@ int DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
   if (alpha_property_.id()) {
     success = drmModeAtomicAddProperty(property_set, id_, alpha_property_.id(),
                                        alpha) < 0;
+  }
+
+  if (fence != -1 && in_fence_fd_property_.id()) {
+     success = drmModeAtomicAddProperty(property_set, id_,
+                                        in_fence_fd_property_.id(), fence) < 0;
   }
 
   if (success) {
