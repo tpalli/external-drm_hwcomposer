@@ -488,12 +488,8 @@ int DrmDisplayCompositor::DisablePlanes(DrmDisplayComposition *display_comp) {
       display_comp->composition_planes();
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
-    ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                   plane->crtc_property().id(), 0) < 0 ||
-          drmModeAtomicAddProperty(pset, plane->id(), plane->fb_property().id(),
-                                   0) < 0;
+    ret = plane->Disable(pset);
     if (ret) {
-      ALOGE("Failed to add plane %d disable to pset", plane->id());
       drmModeAtomicFree(pset);
       return ret;
     }
@@ -642,14 +638,9 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
 
   for (DrmCompositionPlane &comp_plane : comp_planes) {
     DrmPlane *plane = comp_plane.plane();
-    DrmCrtc *crtc = comp_plane.crtc();
     std::vector<size_t> &source_layers = comp_plane.source_layers();
 
     int fb_id = -1;
-    DrmHwcRect<int> display_frame;
-    DrmHwcRect<float> source_crop;
-    uint64_t rotation = 0;
-    uint64_t alpha = 0xFF;
 
     if (comp_plane.type() != DrmCompositionPlane::Type::kDisable) {
       if (source_layers.size() > 1) {
@@ -696,104 +687,27 @@ int DrmDisplayCompositor::CommitFrame(DrmDisplayComposition *display_comp,
         }
         fb_id = layer.buffer->fb_id;
       }
-      display_frame = layer.display_frame;
-      source_crop = layer.source_crop;
-      if (layer.blending == DrmHwcBlending::kPreMult)
-        alpha = layer.alpha;
 
-      rotation = 0;
-      if (layer.transform & DrmHwcTransform::kFlipH)
-        rotation |= 1 << DRM_REFLECT_X;
-      if (layer.transform & DrmHwcTransform::kFlipV)
-        rotation |= 1 << DRM_REFLECT_Y;
-      if (layer.transform & DrmHwcTransform::kRotate90)
-        rotation |= 1 << DRM_ROTATE_90;
-      else if (layer.transform & DrmHwcTransform::kRotate180)
-        rotation |= 1 << DRM_ROTATE_180;
-      else if (layer.transform & DrmHwcTransform::kRotate270)
-        rotation |= 1 << DRM_ROTATE_270;
+      if (fb_id > 0) {
+        ret = plane->UpdateProperties(pset, crtc->id(), layer);
+
+        if (ret) {
+          ALOGE("Failed to update Plane.");
+          break;
+        }
+      }
     }
     // Disable the plane if there's no framebuffer
     if (fb_id < 0) {
-      ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->crtc_property().id(), 0) < 0 ||
-            drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->fb_property().id(), 0) < 0;
-      if (ret) {
-        ALOGE("Failed to add plane %d disable to pset", plane->id());
+      ret = plane->Disable(pset);
+      if (ret)
         break;
-      }
+
       continue;
     }
 
-    // TODO: Once we have atomic test, this should fall back to GL
-    if (rotation && plane->rotation_property().id() == 0) {
-      ALOGE("Rotation is not supported on plane %d", plane->id());
-      ret = -EINVAL;
+    if (ret)
       break;
-    }
-
-    // TODO: Once we have atomic test, this should fall back to GL
-    if (alpha != 0xFF && plane->alpha_property().id() == 0) {
-      ALOGE("Alpha is not supported on plane %d", plane->id());
-      ret = -EINVAL;
-      break;
-    }
-
-    ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                   plane->crtc_property().id(), crtc->id()) < 0;
-    ret |= drmModeAtomicAddProperty(pset, plane->id(),
-                                    plane->fb_property().id(), fb_id) < 0;
-    ret |= drmModeAtomicAddProperty(pset, plane->id(),
-                                    plane->crtc_x_property().id(),
-                                    display_frame.left) < 0;
-    ret |= drmModeAtomicAddProperty(pset, plane->id(),
-                                    plane->crtc_y_property().id(),
-                                    display_frame.top) < 0;
-    ret |= drmModeAtomicAddProperty(
-               pset, plane->id(), plane->crtc_w_property().id(),
-               display_frame.right - display_frame.left) < 0;
-    ret |= drmModeAtomicAddProperty(
-               pset, plane->id(), plane->crtc_h_property().id(),
-               display_frame.bottom - display_frame.top) < 0;
-    ret |= drmModeAtomicAddProperty(pset, plane->id(),
-                                    plane->src_x_property().id(),
-                                    (int)(source_crop.left) << 16) < 0;
-    ret |= drmModeAtomicAddProperty(pset, plane->id(),
-                                    plane->src_y_property().id(),
-                                    (int)(source_crop.top) << 16) < 0;
-    ret |= drmModeAtomicAddProperty(
-               pset, plane->id(), plane->src_w_property().id(),
-               (int)(source_crop.right - source_crop.left) << 16) < 0;
-    ret |= drmModeAtomicAddProperty(
-               pset, plane->id(), plane->src_h_property().id(),
-               (int)(source_crop.bottom - source_crop.top) << 16) < 0;
-    if (ret) {
-      ALOGE("Failed to add plane %d to set", plane->id());
-      break;
-    }
-
-    if (plane->rotation_property().id()) {
-      ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->rotation_property().id(),
-                                     rotation) < 0;
-      if (ret) {
-        ALOGE("Failed to add rotation property %d to plane %d",
-              plane->rotation_property().id(), plane->id());
-        break;
-      }
-    }
-
-    if (plane->alpha_property().id()) {
-      ret = drmModeAtomicAddProperty(pset, plane->id(),
-                                     plane->alpha_property().id(),
-                                     alpha) < 0;
-      if (ret) {
-        ALOGE("Failed to add alpha property %d to plane %d",
-              plane->alpha_property().id(), plane->id());
-        break;
-      }
-    }
   }
 
 out:
