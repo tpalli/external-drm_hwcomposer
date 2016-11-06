@@ -129,6 +129,110 @@ int DrmPlane::Init() {
   return 0;
 }
 
+int DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
+                               uint32_t crtc_id,
+                               const DrmHwcLayer &layer) const {
+  uint64_t alpha = 0xFF;
+  const DrmHwcRect<int> &display_frame = layer.display_frame;
+  const DrmHwcRect<float> &source_crop = layer.source_crop;
+  uint64_t transform = layer.transform;
+  if (layer.blending == DrmHwcBlending::kPreMult)
+    alpha = layer.alpha;
+
+  if (alpha != 0xFF && alpha_property_.id() == 0)
+    ALOGE("Alpha is not supported on plane %d", id_);
+
+  uint64_t rotation = 0;
+  if (transform & DrmHwcTransform::kFlipH)
+    rotation |= 1 << DRM_REFLECT_X;
+  if (transform & DrmHwcTransform::kFlipV)
+    rotation |= 1 << DRM_REFLECT_Y;
+  if (transform & DrmHwcTransform::kRotate90)
+    rotation |= 1 << DRM_ROTATE_90;
+  else if (transform & DrmHwcTransform::kRotate180)
+    rotation |= 1 << DRM_ROTATE_180;
+  else if (transform & DrmHwcTransform::kRotate270)
+    rotation |= 1 << DRM_ROTATE_270;
+  else
+    rotation |= 1 << DRM_ROTATE_0;
+
+  if (rotation && rotation_property_.id() == 0)
+    ALOGE("Rotation is not supported on plane %d", id_);
+
+  int success = drmModeAtomicAddProperty(property_set, id_, crtc_property_.id(),
+                                         crtc_id) < 0;
+  success |= drmModeAtomicAddProperty(property_set, id_, fb_property_.id(),
+                                      layer.buffer->fb_id) < 0;
+  success |= drmModeAtomicAddProperty(property_set, id_, crtc_x_property_.id(),
+                                      display_frame.left) < 0;
+  success |= drmModeAtomicAddProperty(property_set, id_, crtc_y_property_.id(),
+                                      display_frame.top) < 0;
+  if (type_ == DRM_PLANE_TYPE_CURSOR) {
+    success |=
+        drmModeAtomicAddProperty(property_set, id_, crtc_w_property_.id(),
+                                 layer.buffer->width) < 0;
+    success |=
+        drmModeAtomicAddProperty(property_set, id_, crtc_h_property_.id(),
+                                 layer.buffer->height) < 0;
+  } else {
+    success |=
+        drmModeAtomicAddProperty(property_set, id_, crtc_w_property_.id(),
+                                 display_frame.right - display_frame.left) < 0;
+    success |=
+        drmModeAtomicAddProperty(property_set, id_, crtc_h_property_.id(),
+                                 display_frame.bottom - display_frame.top) < 0;
+  }
+
+  success |= drmModeAtomicAddProperty(property_set, id_, src_x_property_.id(),
+                                      (int)(source_crop.left) << 16) < 0;
+  success |= drmModeAtomicAddProperty(property_set, id_, src_y_property_.id(),
+                                      (int)(source_crop.top) << 16) < 0;
+  if (type_ == DRM_PLANE_TYPE_CURSOR) {
+    success |= drmModeAtomicAddProperty(property_set, id_, src_w_property_.id(),
+                                        layer.buffer->width << 16) < 0;
+    success |= drmModeAtomicAddProperty(property_set, id_, src_h_property_.id(),
+                                        layer.buffer->height << 16) < 0;
+  } else {
+    success |= drmModeAtomicAddProperty(
+                   property_set, id_, src_w_property_.id(),
+                   (int)(source_crop.right - source_crop.left) << 16) < 0;
+    success |= drmModeAtomicAddProperty(
+                   property_set, id_, src_h_property_.id(),
+                   (int)(source_crop.bottom - source_crop.top) << 16) < 0;
+  }
+
+  if (rotation_property_.id()) {
+    success = drmModeAtomicAddProperty(property_set, id_,
+                                       rotation_property_.id(), rotation) < 0;
+  }
+
+  if (alpha_property_.id()) {
+    success = drmModeAtomicAddProperty(property_set, id_, alpha_property_.id(),
+                                       alpha) < 0;
+  }
+
+  if (success) {
+    ALOGE("Could not update properties for plane with id: %d", id_);
+    return -EINVAL;
+  }
+
+  return success;
+}
+
+int DrmPlane::Disable(drmModeAtomicReqPtr property_set) const {
+  int success =
+      drmModeAtomicAddProperty(property_set, id_, crtc_property_.id(), 0) < 0;
+  success |=
+      drmModeAtomicAddProperty(property_set, id_, fb_property_.id(), 0) < 0;
+
+  if (success) {
+    ALOGE("Failed to disable plane with id: %d", id_);
+    return -EINVAL;
+  }
+
+  return success;
+}
+
 uint32_t DrmPlane::id() const {
   return id_;
 }

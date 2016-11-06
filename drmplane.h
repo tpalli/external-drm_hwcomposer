@@ -18,6 +18,7 @@
 #define ANDROID_DRM_PLANE_H_
 
 #include "drmcrtc.h"
+#include "drmhwcomposer.h"
 #include "drmproperty.h"
 
 #include <stdint.h>
@@ -35,6 +36,11 @@ class DrmPlane {
   DrmPlane &operator=(const DrmPlane &) = delete;
 
   int Init();
+
+  int UpdateProperties(drmModeAtomicReqPtr property_set, uint32_t crtc_id,
+                       const DrmHwcLayer &layer) const;
+
+  int Disable(drmModeAtomicReqPtr property_set) const;
 
   uint32_t id() const;
 
