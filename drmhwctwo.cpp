@@ -498,6 +498,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
   for (std::pair<const hwc2_layer_t, DrmHwcTwo::HwcLayer> &l : layers_) {
     switch (l.second.validated_type()) {
       case HWC2::Composition::Device:
+      case HWC2::Composition::Cursor:
         z_map.emplace(std::make_pair(l.second.z_order(), &l.second));
         break;
       case HWC2::Composition::Client:
@@ -693,7 +694,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::ValidateDisplay(uint32_t *num_types,
     DrmHwcTwo::HwcLayer &layer = l.second;
     switch (layer.sf_type()) {
       case HWC2::Composition::SolidColor:
-      case HWC2::Composition::Cursor:
       case HWC2::Composition::Sideband:
         layer.set_validated_type(HWC2::Composition::Client);
         ++*num_types;
