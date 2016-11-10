@@ -206,6 +206,7 @@ class DrmHwcTwo : public hwc2_device_t {
     HwcLayer client_layer_;
     UniqueFd retire_fence_;
     UniqueFd next_retire_fence_;
+    int32_t color_mode_;
 
     uint32_t frame_no_ = 0;
   };
