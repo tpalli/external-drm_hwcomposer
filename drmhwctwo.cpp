@@ -218,7 +218,6 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
     return err;
 
   // Grab the first mode, we'll choose this as the active mode
-  // TODO: Should choose the preferred mode here
   hwc2_config_t default_config;
   num_configs = 1;
   err = GetDisplayConfigs(&num_configs, &default_config);
@@ -375,6 +374,8 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayAttribute(hwc2_config_t config,
 HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
                                                      hwc2_config_t *configs) {
   supported(__func__);
+  // Only export the PREFERRED mode
+  *num_configs = 1;
   // Since this callback is normally invoked twice (once to get the count, and
   // once to populate configs), we don't really want to read the edid
   // redundantly. Instead, only update the modes on the first invocation. While
@@ -386,21 +387,23 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
       ALOGE("Failed to update display modes %d", ret);
       return HWC2::Error::BadDisplay;
     }
-  }
-
-  auto num_modes = static_cast<uint32_t>(connector_->modes().size());
-  if (!configs) {
-    *num_configs = num_modes;
     return HWC2::Error::None;
   }
 
-  uint32_t idx = 0;
+  bool found = false;
   for (const DrmMode &mode : connector_->modes()) {
-    if (idx >= *num_configs)
+    // There can be only one Preferred mode per connector.
+    if (mode.type() & DRM_MODE_TYPE_PREFERRED) {
+      configs[0] = mode.id();
+      found = true;
       break;
-    configs[idx++] = mode.id();
+    }
   }
-  *num_configs = idx;
+
+  if (!found) {
+    ALOGE("Failed to find preferred mode.");
+    return HWC2::Error::BadDisplay;
+  }
   return HWC2::Error::None;
 }
 
