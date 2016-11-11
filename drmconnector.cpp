@@ -75,6 +75,18 @@ bool DrmConnector::built_in() const {
          type_ == DRM_MODE_CONNECTOR_DisplayPort;
 }
 
+static bool
+compare_mode(DrmMode a, DrmMode b)
+{
+  // preferred modes always win
+  if (b.type() & DRM_MODE_TYPE_PREFERRED)
+     return true;
+
+  // 'my mode is bigger than yours'
+  return (a.h_display() < b.h_display() &&
+          a.v_display() < b.v_display());
+}
+
 int DrmConnector::UpdateModes() {
   int fd = drm_->fd();
 
@@ -104,6 +116,9 @@ int DrmConnector::UpdateModes() {
     new_modes.push_back(m);
   }
   modes_.swap(new_modes);
+
+  std::sort(modes_.begin(), modes_.end(), compare_mode);
+
   return 0;
 }
 
