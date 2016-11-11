@@ -218,6 +218,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::Init(std::vector<DrmPlane *> *planes) {
     return err;
 
   // Grab the first mode, we'll choose this as the active mode
+  // TODO: Should choose the preferred mode here
   hwc2_config_t default_config;
   num_configs = 1;
   err = GetDisplayConfigs(&num_configs, &default_config);
@@ -397,10 +398,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::GetDisplayConfigs(uint32_t *num_configs,
   for (const DrmMode &mode : connector_->modes()) {
     if (idx >= *num_configs)
       break;
-    // There can be only one Preferred mode per connector.
-    if (mode.type() & DRM_MODE_TYPE_PREFERRED) {
-      configs[idx++] = mode.id();
-    }
+    configs[idx++] = mode.id();
   }
   *num_configs = idx;
   return HWC2::Error::None;
