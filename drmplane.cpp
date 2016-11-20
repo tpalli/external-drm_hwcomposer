@@ -355,4 +355,64 @@ bool DrmPlane::IsSupportedFormat(uint32_t format) {
 
   return false;
 }
+
+void DrmPlane::Dump() const {
+  ALOGI("Plane ID: %d", id_);
+  switch (type_) {
+    case DRM_PLANE_TYPE_OVERLAY:
+      ALOGI("Type: Overlay.");
+      break;
+    case DRM_PLANE_TYPE_PRIMARY:
+      ALOGI("Type: Primary.");
+      break;
+    case DRM_PLANE_TYPE_CURSOR:
+      ALOGI("Type: Cursor.");
+      break;
+      break;
+    default:
+      ALOGE("Invalid plane type %" PRIu64, type_);
+  }
+
+  for (uint32_t j = 0; j < supported_formats_.size(); j++)
+    ALOGI("Format: %4.4s", (char *)&supported_formats_[j]);
+
+  if (alpha_property_.id() != 0)
+    ALOGI("Alpha property is supported.");
+
+  if (rotation_property_.id() != 0)
+    ALOGI("Rotation property is supported.");
+
+  if (crtc_property_.id() != 0)
+    ALOGI("CRTC_ID property is supported.");
+
+  if (fb_property_.id() != 0)
+    ALOGI("FB_ID property is supported.");
+
+  if (crtc_x_property_.id() != 0)
+    ALOGI("CRTC_X property is supported.");
+
+  if (crtc_y_property_.id() != 0)
+    ALOGI("CRTC_Y property is supported.");
+
+  if (crtc_w_property_.id() != 0)
+    ALOGI("CRTC_W property is supported.");
+
+  if (crtc_h_property_.id() != 0)
+    ALOGI("CRTC_H property is supported.");
+
+  if (src_x_property_.id() != 0)
+    ALOGI("SRC_X property is supported.");
+
+  if (src_y_property_.id() != 0)
+    ALOGI("SRC_Y property is supported.");
+
+  if (src_w_property_.id() != 0)
+    ALOGI("SRC_W property is supported.");
+
+  if (src_h_property_.id() != 0)
+    ALOGI("SRC_H property is supported.");
+
+  if (in_fence_fd_property_.id() != 0)
+    ALOGI("IN_FENCE_FD is supported.");
+}
 }

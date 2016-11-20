@@ -64,6 +64,8 @@ class DrmPlane {
   const DrmProperty &alpha_property() const;
   const DrmProperty &in_fence_fd_property() const;
 
+  void Dump() const;
+
  private:
   bool IsSupportedFormat(uint32_t format);
 
