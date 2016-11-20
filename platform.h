@@ -64,6 +64,9 @@ class Importer {
 
 class Planner {
  public:
+  virtual ~Planner() {
+  }
+
   class PlanStage {
    public:
     virtual ~PlanStage() {
@@ -135,7 +138,7 @@ class Planner {
   //
   // Returns: A tuple with the status of the operation (0 for success) and
   //          a vector of the resulting plan (ie: layer->plane mapping).
-  std::tuple<int, std::vector<DrmCompositionPlane>> ProvisionPlanes(
+  virtual std::tuple<int, std::vector<DrmCompositionPlane>> ProvisionPlanes(
       std::map<size_t, DrmHwcLayer *> &layers, bool use_squash_fb,
       DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
       std::vector<DrmPlane *> *overlay_planes,

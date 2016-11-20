@@ -518,7 +518,7 @@ HWC2::Error DrmHwcTwo::HwcDisplay::PresentDisplay(int32_t *retire_fence) {
         continue;
     }
   }
-  if (use_client_layer)
+  if (use_client_layer && client_layer_.buffer())
     z_map.emplace(std::make_pair(client_z_order, &client_layer_));
 
   // now that they're ordered by z, add them to the composition

@@ -47,6 +47,10 @@ class DrmCrtc {
   const DrmProperty &mode_property() const;
   const DrmProperty &out_fence_ptr_property() const;
 
+  DrmResources *drm_resources() const {
+    return drm_;
+  }
+
  private:
   DrmResources *drm_;
 

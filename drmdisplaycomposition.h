@@ -79,6 +79,11 @@ class DrmCompositionPlane {
         crtc_(crtc),
         source_layers_(1, source_layer) {
   }
+  DrmCompositionPlane(Type type, DrmPlane *plane, DrmCrtc *crtc,
+                      std::vector<size_t> source_layers)
+      : type_(type), plane_(plane), crtc_(crtc) {
+    source_layers_.swap(source_layers);
+  }
 
   Type type() const {
     return type_;

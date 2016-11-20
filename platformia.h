@@ -47,13 +47,38 @@ class IAImporter : public Importer {
   const gralloc_module_t *gralloc_;
 };
 
-// This plan stage extracts bottom layer and places it on primary
-// plane.
-class PlanStagePrimary : public Planner::PlanStage {
- public:
-  int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
-                      std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-                      std::vector<DrmPlane *> *planes);
+class IAPlanner : public Planner {
+    virtual ~IAPlanner() {
+    }
+
+   protected:
+    std::tuple<int, std::vector<DrmCompositionPlane>> ProvisionPlanes(
+        std::map<size_t, DrmHwcLayer *> &layers, bool use_squash_fb,
+        DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
+        std::vector<DrmPlane *> *overlay_planes,
+        std::vector<DrmPlane *> *cursor_planes) override;
+
+   private:
+    struct OverlayPlane {
+     public:
+      OverlayPlane(DrmPlane *plane, DrmHwcLayer *layer)
+          : plane(plane), layer(layer) {
+      }
+      DrmPlane *plane;
+      DrmHwcLayer *layer;
+    };
+
+    std::vector<DrmPlane *> GetUsableOverlayPlanes(
+        DrmCrtc *crtc, std::vector<DrmPlane *> *overlay_planes) const;
+    DrmPlane *PopUsableCursorPlane(
+        DrmCrtc *crtc, std::vector<DrmPlane *> *cursor_planes) const;
+    DrmPlane *PopUsablePrimaryPlane(
+        DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes) const;
+    bool IsPreCompositionNeeded(
+        DrmPlane *target_plane, DrmCrtc *crtc, DrmHwcLayer &layer,
+        const std::vector<OverlayPlane> &commit_planes) const;
+    bool TestCommit(const std::vector<OverlayPlane> &commit_planes,
+                    DrmCrtc *crtc) const;
 };
 }
 #endif

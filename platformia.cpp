@@ -174,40 +174,212 @@ int IAImporter::ReleaseBuffer(hwc_drm_bo_t *bo) {
   return 0;
 }
 
-int PlanStagePrimary::ProvisionPlanes(
-    std::vector<DrmCompositionPlane> *composition,
-    std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
-    std::vector<DrmPlane *> *planes) {
-  // Ensure we always have a valid primary plane. On some platforms vblank is
-  // tied to primary and whole pipe can get disabled in case primary plane is
-  // disabled.
-  DrmPlane *primary_plane = NULL;
-  for (auto i = planes->begin(); i != planes->end(); ++i) {
-    if ((*i)->type() == DRM_PLANE_TYPE_PRIMARY) {
-      primary_plane = *i;
-      planes->erase(i);
+std::vector<DrmPlane *> IAPlanner::GetUsableOverlayPlanes(
+    DrmCrtc *crtc, std::vector<DrmPlane *> *overlay_planes) const {
+  std::vector<DrmPlane *> usable_planes;
+  std::copy_if(overlay_planes->begin(), overlay_planes->end(),
+	       std::back_inserter(usable_planes),
+	       [=](DrmPlane *plane) { return plane->GetCrtcSupported(*crtc); });
+  return usable_planes;
+}
+
+DrmPlane *IAPlanner::PopUsableCursorPlane(
+    DrmCrtc *crtc, std::vector<DrmPlane *> *cursor_planes) const {
+  DrmPlane *cursor_plane = NULL;
+  for (auto i = cursor_planes->begin(); i != cursor_planes->end(); ++i) {
+    if ((*i)->GetCrtcSupported(*crtc)) {
+      cursor_plane = *i;
+      cursor_planes->erase(i);
       break;
     }
   }
 
-  // If we dont have a free primary plane, than its being used as the precomp
-  // plane.
-  if (!primary_plane)
-    return 0;
+  return cursor_plane;
+}
 
-  auto precomp = GetPrecompIter(composition);
-  composition->emplace(precomp, DrmCompositionPlane::Type::kLayer,
-                       primary_plane, crtc, layers.begin()->first);
+DrmPlane *IAPlanner::PopUsablePrimaryPlane(
+    DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes) const {
+  DrmPlane *primary_plane = NULL;
+  for (auto i = primary_planes->begin(); i != primary_planes->end(); ++i) {
+    if ((*i)->GetCrtcSupported(*crtc)) {
+      primary_plane = *i;
+      primary_planes->erase(i);
+      break;
+    }
+  }
+
+  return primary_plane;
+}
+
+std::tuple<int, std::vector<DrmCompositionPlane>> IAPlanner::ProvisionPlanes(
+    std::map<size_t, DrmHwcLayer *> &layers, bool /*use_squash_fb*/,
+    DrmCrtc *crtc, std::vector<DrmPlane *> *primary_planes,
+    std::vector<DrmPlane *> *overlay_planes,
+    std::vector<DrmPlane *> *cursor_planes) {
+  std::vector<DrmCompositionPlane> composition;
+  DrmPlane *next_plane = NULL;
+  DrmPlane *current_plane = NULL;
+  std::vector<OverlayPlane> commit_planes;
+  std::vector<size_t> source_layers;
+  DrmHwcLayer *cursor_layer = NULL;
+  size_t cursor_index = 0;
+
+  // We start off with Primary plane.
+  current_plane = PopUsablePrimaryPlane(crtc, primary_planes);
+
+  if (!current_plane)
+    return std::make_tuple(-ENODEV, std::vector<DrmCompositionPlane>());
+
+  // Retrieve cursor layer data and delete it from the layers.
+  for (auto j = layers.rbegin(); j != layers.rend(); ++j) {
+    if (j->second->gralloc_buffer_usage & GRALLOC_USAGE_CURSOR) {
+      cursor_index = j->first;
+      cursor_layer = j->second;
+      layers.erase(std::next(j).base());
+      break;
+    }
+  }
+
+  if (layers.empty())
+    return std::make_tuple(-ENODEV, std::vector<DrmCompositionPlane>());
+
+  commit_planes.push_back(OverlayPlane(current_plane, layers.begin()->second));
+
+  bool force_pre_comp = false;
+  // Lets ensure we fall back to GPU composition in case
+  // primary layer cannot be scanned out directly.
+  if (IsPreCompositionNeeded(current_plane, crtc, *(layers.begin()->second),
+			     commit_planes)) {
+    force_pre_comp = true;
+  }
+
+  source_layers.emplace_back(layers.begin()->first);
   layers.erase(layers.begin());
 
-  return 0;
+  if (!layers.empty()) {
+    std::vector<DrmPlane *> overlays =
+	GetUsableOverlayPlanes(crtc, overlay_planes);
+
+    if (!overlays.empty()) {
+      // Handle remaining overlay planes.
+      for (auto i = layers.begin(); i != layers.end();) {
+	DrmHwcLayer &layer = *(i->second);
+	if (!next_plane) {
+	  next_plane = *(overlays.begin());
+	  commit_planes.emplace_back(OverlayPlane(next_plane, i->second));
+	} else {
+	  commit_planes.back().layer = i->second;
+	}
+	// If we are able to composite buffer with the given plane, lets use
+	// it.
+	if (!IsPreCompositionNeeded(next_plane, crtc, layer, commit_planes)) {
+	  DrmCompositionPlane::Type type = DrmCompositionPlane::Type::kLayer;
+	  if (source_layers.size() > 1 || force_pre_comp) {
+	    type = DrmCompositionPlane::Type::kPrecomp;
+	    force_pre_comp = false;
+	  }
+
+	  composition.emplace_back(type, current_plane, crtc, source_layers);
+
+	  overlays.erase(overlays.begin());
+	  current_plane = next_plane;
+	  next_plane = NULL;
+	  if (overlays.empty())
+	    break;
+	}
+
+	source_layers.emplace_back(i->first);
+	i = layers.erase(i);
+      }
+
+      // Ensure any unused overlays get disabled.
+      for (auto n = overlays.begin(); n != overlays.end();
+	   n = overlays.erase(n)) {
+	overlay_planes->emplace_back(*n);
+      }
+    }
+  }
+
+  // We dont have any additional planes. Pre composite remaining layers
+  // to the last overlay plane.
+  for (auto i = layers.begin(); i != layers.end(); i++) {
+    source_layers.emplace_back(i->first);
+  }
+
+  DrmPlane *cursor_plane = NULL;
+  if (cursor_layer) {
+    // Handle Cursor layer. If we have dedicated cursor plane, try using it
+    // to composite cursor layer.
+    cursor_plane = PopUsableCursorPlane(crtc, cursor_planes);
+    if (cursor_plane) {
+      commit_planes.insert(commit_planes.begin(),
+			   OverlayPlane(cursor_plane, cursor_layer));
+      // Lets ensure we fall back to GPU composition in case
+      // cursor layer cannot be scanned out directly.
+      if (IsPreCompositionNeeded(cursor_plane, crtc, *(cursor_layer),
+				 commit_planes)) {
+	  cursor_planes->emplace_back(cursor_plane);
+	  cursor_plane = NULL;
+      }
+    }
+
+    if (!cursor_plane)
+      source_layers.emplace_back(cursor_index);
+  }
+
+  if (source_layers.size()) {
+    DrmCompositionPlane::Type comp_type = DrmCompositionPlane::Type::kLayer;
+    if (source_layers.size() > 1 || force_pre_comp)
+      comp_type = DrmCompositionPlane::Type::kPrecomp;
+
+    composition.emplace_back(comp_type, current_plane, crtc, source_layers);
+  }
+
+  if (cursor_plane)
+    composition.emplace_back(DrmCompositionPlane::Type::kLayer, cursor_plane, crtc, cursor_index);
+
+  return std::make_tuple(0, std::move(composition));
+}
+
+bool IAPlanner::IsPreCompositionNeeded(
+    DrmPlane *target_plane, DrmCrtc *crtc, DrmHwcLayer &layer,
+    const std::vector<OverlayPlane> &commit_planes) const {
+  if (!target_plane->CanCompositeLayer(layer))
+    return true;
+
+  if ((layer.buffer->fb_id <= 0) &&
+      layer.buffer.CreateFrameBuffer(target_plane->type()))
+    return true;
+
+  // TODO(kalyank): Take relevant factors into consideration to determine if
+  // Plane Composition makes sense. i.e. layer size etc
+
+  if (!TestCommit(commit_planes, crtc))
+    return true;
+
+  return false;
+}
+
+bool IAPlanner::TestCommit(const std::vector<OverlayPlane> &commit_planes,
+			   DrmCrtc *crtc) const {
+  drmModeAtomicReqPtr pset = drmModeAtomicAlloc();
+  DrmResources *drm = crtc->drm_resources();
+  for (auto i = commit_planes.begin(); i != commit_planes.end(); i++) {
+    if (i->plane->UpdateProperties(pset, crtc->id(), *(i->layer))) {
+      ALOGE("Failed to update Plane.");
+      return false;
+    }
+  }
+
+  if (drmModeAtomicCommit(drm->fd(), pset, DRM_MODE_ATOMIC_TEST_ONLY, drm))
+    return false;
+
+  return true;
 }
 
 #ifdef USE_IA_PLANNER
 std::unique_ptr<Planner> Planner::CreateInstance(DrmResources *) {
-  std::unique_ptr<Planner> planner(new Planner);
-  planner->AddStage<PlanStagePrimary>();
-  planner->AddStage<PlanStageGreedy>();
+  std::unique_ptr<Planner> planner(new IAPlanner);
   return planner;
 }
 #endif
