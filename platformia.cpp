@@ -207,7 +207,7 @@ int PlanStagePrimary::ProvisionPlanes(
 std::unique_ptr<Planner> Planner::CreateInstance(DrmResources *) {
   std::unique_ptr<Planner> planner(new Planner);
   planner->AddStage<PlanStagePrimary>();
-  planner->AddStage<PlanStageGreedy>();
+  planner->AddStage<PlanStageDummy>();
   return planner;
 }
 #endif

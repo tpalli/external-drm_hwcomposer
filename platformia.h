@@ -55,5 +55,22 @@ class PlanStagePrimary : public Planner::PlanStage {
                       std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *crtc,
                       std::vector<DrmPlane *> *planes);
 };
+
+// Put all of the layers in the precomp plane
+class PlanStageDummy : public Planner::PlanStage {
+ public:
+  int ProvisionPlanes(std::vector<DrmCompositionPlane> *composition,
+                     std::map<size_t, DrmHwcLayer *> &layers, DrmCrtc *,
+                     std::vector<DrmPlane *> *)
+  {
+    DrmCompositionPlane *precomp = GetPrecomp(composition);
+    if (precomp) {
+      for (auto i = layers.begin(); i != layers.end(); i = layers.erase(i))
+        precomp->source_layers().emplace_back(i->first);
+    }
+    return 0;
+  }
+};
+
 }
 #endif
