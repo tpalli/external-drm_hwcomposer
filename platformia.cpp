@@ -82,8 +82,8 @@ uint32_t IAImporter::GetFormatForFrameBuffer(uint32_t fourcc_format,
 }
 
 EGLImageKHR IAImporter::ImportImage(EGLDisplay egl_display,
-				    DrmHwcBuffer *buffer,
-				    buffer_handle_t handle) {
+                                    DrmHwcBuffer *buffer,
+                                    buffer_handle_t handle) {
   gralloc_drm_handle_t *gr_handle = gralloc_drm_handle(handle);
   EGLImageKHR image = EGL_NO_IMAGE_KHR;
   // Note: If eglCreateImageKHR is successful for a EGL_LINUX_DMA_BUF_EXT
