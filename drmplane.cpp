@@ -30,6 +30,10 @@ namespace android {
 
 DrmPlane::DrmPlane(DrmResources *drm, drmModePlanePtr p)
     : drm_(drm), id_(p->plane_id), possible_crtc_mask_(p->possible_crtcs) {
+  for (uint32_t j = 0; j < p->count_formats; j++)
+    supported_formats_.emplace_back(p->formats[j]);
+
+  last_valid_format_ = 0;
 }
 
 int DrmPlane::Init() {
@@ -144,9 +148,6 @@ int DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
   if (layer.blending == DrmHwcBlending::kPreMult)
     alpha = layer.alpha;
 
-  if (alpha != 0xFF && alpha_property_.id() == 0)
-    ALOGE("Alpha is not supported on plane %d", id_);
-
   uint64_t rotation = 0;
   if (transform & DrmHwcTransform::kFlipH)
     rotation |= 1 << DRM_REFLECT_X;
@@ -160,9 +161,6 @@ int DrmPlane::UpdateProperties(drmModeAtomicReqPtr property_set,
     rotation |= 1 << DRM_ROTATE_270;
   else
     rotation |= 1 << DRM_ROTATE_0;
-
-  if (rotation && rotation_property_.id() == 0)
-    ALOGE("Rotation is not supported on plane %d", id_);
 
   int success = drmModeAtomicAddProperty(property_set, id_, crtc_property_.id(),
                                          crtc_id) < 0;
@@ -255,6 +253,43 @@ uint32_t DrmPlane::type() const {
   return type_;
 }
 
+bool DrmPlane::CanCompositeLayer(const DrmHwcLayer &layer) {
+  uint64_t alpha = 0xFF;
+  uint64_t transform = layer.transform;
+
+  if (layer.blending == DrmHwcBlending::kPreMult)
+    alpha = layer.alpha;
+
+  if (alpha != 0xFF && alpha_property_.id() == 0) {
+    ALOGI("Alpha is not supported on plane %d", id_);
+    return false;
+  }
+
+  uint64_t rotation = 0;
+  if (transform & DrmHwcTransform::kFlipH)
+    rotation |= 1 << DRM_REFLECT_X;
+  if (transform & DrmHwcTransform::kFlipV)
+    rotation |= 1 << DRM_REFLECT_Y;
+  if (transform & DrmHwcTransform::kRotate90)
+    rotation |= 1 << DRM_ROTATE_90;
+  else if (transform & DrmHwcTransform::kRotate180)
+    rotation |= 1 << DRM_ROTATE_180;
+  else if (transform & DrmHwcTransform::kRotate270)
+    rotation |= 1 << DRM_ROTATE_270;
+  else
+    rotation |= 1 << DRM_ROTATE_0;
+
+  if (rotation && rotation_property_.id() == 0) {
+    ALOGI("Rotation is not supported on plane %d", id_);
+    return false;
+  }
+
+  if (!layer.buffer)
+    return false;
+
+  return IsSupportedFormat(layer.buffer->format);
+}
+
 const DrmProperty &DrmPlane::crtc_property() const {
   return crtc_property_;
 }
@@ -305,5 +340,19 @@ const DrmProperty &DrmPlane::alpha_property() const {
 
 const DrmProperty &DrmPlane::in_fence_fd_property() const {
   return in_fence_fd_property_;
+}
+
+bool DrmPlane::IsSupportedFormat(uint32_t format) {
+  if (last_valid_format_ == format)
+    return true;
+
+  for (auto &element : supported_formats_) {
+    if (element == format) {
+      last_valid_format_ = format;
+      return true;
+    }
+  }
+
+  return false;
 }
 }

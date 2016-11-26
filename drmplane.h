@@ -48,6 +48,8 @@ class DrmPlane {
 
   uint32_t type() const;
 
+  bool CanCompositeLayer(const DrmHwcLayer &layer);
+
   const DrmProperty &crtc_property() const;
   const DrmProperty &fb_property() const;
   const DrmProperty &crtc_x_property() const;
@@ -63,12 +65,16 @@ class DrmPlane {
   const DrmProperty &in_fence_fd_property() const;
 
  private:
+  bool IsSupportedFormat(uint32_t format);
+
   DrmResources *drm_;
   uint32_t id_;
 
   uint32_t possible_crtc_mask_;
 
   uint32_t type_;
+
+  uint32_t last_valid_format_;
 
   DrmProperty crtc_property_;
   DrmProperty fb_property_;
@@ -83,6 +89,7 @@ class DrmPlane {
   DrmProperty rotation_property_;
   DrmProperty alpha_property_;
   DrmProperty in_fence_fd_property_;
+  std::vector<uint32_t> supported_formats_;
 };
 }
 
