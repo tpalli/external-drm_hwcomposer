@@ -732,34 +732,8 @@ int DrmDisplayCompositor::ApplyComposition(
         ALOGE("Failed to prepare frame for display %d", display_);
         return ret;
       }
-      if (composition->geometry_changed()) {
-        // Send the composition to the kernel to ensure we can commit it. This
-        // is just a test, it won't actually commit the frame. If rejected,
-        // squash the frame into one layer and use the squashed composition
-        ret = CommitFrame(composition.get(), true);
-        if (ret)
-          ALOGI("Commit test failed, squashing frame for display %d", display_);
-        use_hw_overlays_ = !ret;
-      }
 
-      // If use_hw_overlays_ is false, we can't use hardware to composite the
-      // frame. So squash all layers into a single composition and apply that
-      // instead.
-      if (!use_hw_overlays_) {
-        std::unique_ptr<DrmDisplayComposition> squashed = CreateComposition();
-        ret = SquashFrame(composition.get(), squashed.get());
-        if (!ret) {
-          composition = std::move(squashed);
-        } else {
-          ALOGE("Failed to squash frame for display %d", display_);
-          // Disable the hw used by the last active composition. This allows us
-          // to signal the release fences from that composition to avoid
-          // hanging.
-          ClearDisplay();
-          return ret;
-        }
-      }
-      ApplyFrame(std::move(composition), ret);
+      ApplyFrame(std::move(composition), false);
       break;
     case DRM_COMPOSITION_TYPE_DPMS:
       active_ = (composition->dpms_mode() == DRM_MODE_DPMS_ON);
