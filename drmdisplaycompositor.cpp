@@ -602,8 +602,20 @@ out:
     if (ret) {
       if (test_only)
         ALOGI("Commit test pset failed ret=%d\n", ret);
-      else
-        ALOGE("Failed to commit pset ret=%d\n", ret);
+      else {
+	// TODO(kalyank): The only reason we should be
+	// failing here is driver reporting EBUSY. We
+	// should keep track of Atomic Events and update
+	// the commits Asynchronously. For now do a
+	// blocking commit in case the non-blocking commit
+	// failed.
+	if (!mode_.needs_modeset)
+	  ret = drmModeAtomicCommit(drm_->fd(), pset, 0, drm_);
+
+	if (ret) {
+	  ALOGE("Failed to commit pset ret=%d\n", ret);
+	}
+      }
       drmModeAtomicFree(pset);
       return ret;
     }
