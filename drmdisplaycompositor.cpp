@@ -37,6 +37,8 @@
 #include "drmresources.h"
 #include "glworker.h"
 
+#include "vblankwatch.h"
+
 namespace android {
 
 void SquashState::Init(DrmHwcLayer *layers, size_t num_layers) {
@@ -597,6 +599,9 @@ out:
       flags |= DRM_MODE_ATOMIC_NONBLOCK;
 #endif
     }
+
+    android::vblank_watch *watch = android::vblank_watch::instance();
+    watch->wait();
 
     ret = drmModeAtomicCommit(drm_->fd(), pset, flags, drm_);
     if (ret) {

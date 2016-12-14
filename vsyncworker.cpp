@@ -29,6 +29,8 @@
 #include <cutils/log.h>
 #include <hardware/hardware.h>
 
+#include "vblankwatch.h"
+
 namespace android {
 
 VSyncWorker::VSyncWorker()
@@ -185,6 +187,9 @@ void VSyncWorker::Routine() {
     timestamp = (int64_t)vblank.reply.tval_sec * kOneSecondNs +
                 (int64_t)vblank.reply.tval_usec * 1000;
   }
+
+  android::vblank_watch *watch = android::vblank_watch::instance();
+  watch->post();
 
   /*
    * There's a race here where a change in callback_ will not take effect until
