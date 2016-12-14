@@ -59,7 +59,8 @@ LOCAL_SRC_FILES := \
 	separate_rects.cpp \
 	virtualcompositorworker.cpp \
 	vsyncworker.cpp \
-	worker.cpp
+	worker.cpp \
+	vblankwatch.cpp
 
 LOCAL_CPPFLAGS += \
 	-DHWC2_USE_CPP11 \
