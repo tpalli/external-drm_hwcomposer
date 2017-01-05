@@ -30,9 +30,9 @@ LOCAL_SHARED_LIBRARIES := \
 
 
 LOCAL_C_INCLUDES := \
-        external/drm_gralloc \
-	external/libdrm \
-	external/libdrm/include/drm \
+        vendor/intel/external/android_ia/drm_gralloc \
+	vendor/intel/external/android_ia/libdrm \
+	vendor/intel/external/android_ia/libdrm/include/drm \
 	system/core/include/utils \
 	system/core/libsync \
 	system/core/libsync/include \
