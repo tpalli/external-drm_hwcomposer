@@ -598,7 +598,12 @@ out:
 #endif
     }
 
-    ret = drmModeAtomicCommit(drm_->fd(), pset, flags, drm_);
+    /* FIXME - In case of EBUSY, we spin until succeed. What we
+     * probably should do is to queue commits and process them later.
+     */
+    ret = -EBUSY;
+    while (ret == -EBUSY)
+        ret = drmModeAtomicCommit(drm_->fd(), pset, flags, drm_);
     if (ret) {
       if (test_only)
         ALOGI("Commit test pset failed ret=%d\n", ret);
